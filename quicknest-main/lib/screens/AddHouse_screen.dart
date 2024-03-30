@@ -15,7 +15,7 @@ class AddHousePage extends StatefulWidget {
 }
 
 class _AddHousePageState extends State<AddHousePage> {
-  List<File> _images = [];
+  final List<File> _images = [];
   double _latitude = 0.0;
   double _longitude = 0.0;
   String? _selectedTechnology;
@@ -23,11 +23,11 @@ class _AddHousePageState extends State<AddHousePage> {
   String? _selectedFloor;
   bool _showLocationInfo = false;
 
-  List<String> _technologyOptions = ['furnished', 'Semi-furnished', 'Unfurnished'];
-  List<String> _roomOptions = ['1', '2', '3', '4', '5'];
-  List<String> _floorOptions = ['1', '2', '3', '4', '5'];
+  final List<String> _technologyOptions = ['furnished', 'Semi-furnished', 'Unfurnished'];
+  final List<String> _roomOptions = ['1', '2', '3', '4', '5'];
+  final List<String> _floorOptions = ['1', '2', '3', '4', '5'];
 
-  TextEditingController _priceController = TextEditingController();
+  final TextEditingController _priceController = TextEditingController();
 
   void _updateLocation(double latitude, double longitude) {
     setState(() {
@@ -39,11 +39,12 @@ class _AddHousePageState extends State<AddHousePage> {
 
   Future<void> _getImage() async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    List<XFile>? pickedFiles = await picker.pickMultiImage();
 
-    if (pickedFile != null) {
+    // ignore: unnecessary_null_comparison
+    if (pickedFiles != null) {
       setState(() {
-        _images.add(File(pickedFile.path));
+        _images.addAll(pickedFiles.map((file) => File(file.path)).toList());
       });
     }
   }
@@ -53,17 +54,37 @@ class _AddHousePageState extends State<AddHousePage> {
         _selectedFloor != null &&
         _selectedTechnology != null &&
         _priceController.text.isNotEmpty &&
-        _images.isNotEmpty) {
+        _images.isNotEmpty &&
+        _isNumeric(_priceController.text)) { // Validate if price is numeric
       List<String> imageUrls = await _uploadImages(_images);
       int numberOfRooms = int.parse(_selectedRooms!);
       int floor = int.parse(_selectedFloor!);
       String technology = _selectedTechnology!;
       String price = _priceController.text;
 
-      await addHouseToFirestore(numberOfRooms, floor, technology, price, imageUrls, _latitude,_longitude, widget.userId);
+      await addHouseToFirestore(
+          numberOfRooms, floor, technology, price, imageUrls, _latitude, _longitude, widget.userId);
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('House added successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
     } else {
-      print('Please fill in all fields and add at least one image.');
+      print('Please fill in all fields correctly and add at least one image.');
     }
+  }
+
+  // Function to check if a string is numeric
+  bool _isNumeric(String value) {
+    // ignore: unnecessary_null_comparison
+    if (value == null) {
+      return false;
+    }
+    return double.tryParse(value) != null;
   }
 
   Future<List<String>> _uploadImages(List<File> images) async {
@@ -90,6 +111,9 @@ class _AddHousePageState extends State<AddHousePage> {
 
   @override
   Widget build(BuildContext context) {
+    // ignore: unused_local_variable
+    final inputHeight = 64.0; // Adjust this value as needed
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add House'),
@@ -147,30 +171,7 @@ class _AddHousePageState extends State<AddHousePage> {
               ),
             ),
             const SizedBox(height: 10.0),
-            ElevatedButton(
-              onPressed: () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => MapScreen(
-                      onLocationSelected: _updateLocation,
-                    ),
-                  ),
-                );
-                // Check if coordinates were received from the "MapScreen" page
-                if (result != null &&
-                    result.containsKey('latitude') &&
-                    result.containsKey('longitude')) {
-                  setState(() {
-                    _latitude = result['latitude'];
-                    _longitude = result['longitude'];
-                    _showLocationInfo = true;
-                  });
-                }
-              },
-              child: const Text('Map'),
-            ),
-            const SizedBox(height: 10.0),
+
             if (_showLocationInfo)
               Text('Latitude: $_latitude\nLongitude: $_longitude'),
             const SizedBox(height: 10.0),
@@ -193,8 +194,7 @@ class _AddHousePageState extends State<AddHousePage> {
                 border: OutlineInputBorder(),
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding:
-                    EdgeInsets.symmetric(vertical: 13.0, horizontal: 16.0),
+                contentPadding: EdgeInsets.symmetric(vertical: 13.0, horizontal: 16.0),
               ),
             ),
             const SizedBox(height: 10.0),
@@ -217,8 +217,7 @@ class _AddHousePageState extends State<AddHousePage> {
                 border: OutlineInputBorder(),
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding:
-                    EdgeInsets.symmetric(vertical: 13.0, horizontal: 16.0),
+                contentPadding: EdgeInsets.symmetric(vertical: 13.0, horizontal: 16.0),
               ),
             ),
             const SizedBox(height: 10.0),
@@ -241,20 +240,48 @@ class _AddHousePageState extends State<AddHousePage> {
                 border: OutlineInputBorder(),
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding:
-                    EdgeInsets.symmetric(vertical: 13.0, horizontal: 16.0),
+                contentPadding: EdgeInsets.symmetric(vertical: 13.0, horizontal: 16.0),
               ),
             ),
             const SizedBox(height: 10.0),
             TextField(
               controller: _priceController,
+              keyboardType: TextInputType.number, // Set keyboard type to numeric
               decoration: const InputDecoration(
                 labelText: 'Price',
                 border: OutlineInputBorder(),
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding:
-                    EdgeInsets.symmetric(vertical: 13.0, horizontal: 16.0),
+                contentPadding: EdgeInsets.symmetric(vertical: 13.0, horizontal: 16.0),
+              ),
+            ),
+            const SizedBox(height: 10.0),
+            ElevatedButton(
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => MapScreen(
+                      onLocationSelected: _updateLocation,
+                    ),
+                  ),
+                );
+                // Check if coordinates were received from the "MapScreen" page
+                if (result != null &&
+                    result.containsKey('latitude') &&
+                    result.containsKey('longitude')) {
+                  setState(() {
+                    _latitude = result['latitude'];
+                    _longitude = result['longitude'];
+                    _showLocationInfo = true;
+                  });
+                }
+              },
+              child: const Text('Map'),
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.white, backgroundColor: Colors.black,
+                padding: const EdgeInsets.all(0),
+                minimumSize: const Size(double.infinity, 45),
               ),
             ),
             const SizedBox(height: 10.0),
@@ -263,6 +290,11 @@ class _AddHousePageState extends State<AddHousePage> {
                 _submitData();
               },
               child: const Text('Submit'),
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.white, backgroundColor: Colors.black,
+                padding: const EdgeInsets.all(0),
+                minimumSize: const Size(double.infinity, 45),
+              ),
             ),
           ],
         ),

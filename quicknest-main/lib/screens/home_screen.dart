@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:myfirstprojct/screens/AddHouse_screen.dart';
 import 'package:myfirstprojct/screens/Fav_screen.dart';
@@ -19,7 +20,10 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   List<Map<String, dynamic>> _favoriteItems = [];
   late Stream<QuerySnapshot> _currentStream;
+  // ignore: unused_field
   late TextEditingController _searchController;
+  TextEditingController _priceController = TextEditingController();
+  String _searchValue = '';
 
   @override
   void initState() {
@@ -30,7 +34,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _priceController.dispose();
     super.dispose();
   }
 
@@ -89,27 +93,27 @@ class _HomePageState extends State<HomePage> {
                               children: [
                                 ElevatedButton(
                                   onPressed: () {
-                                    _updateStream('dateAdded'); // Update stream with query sorted by date added
+                                    _updateStream('dateAdded');
                                   },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.black,
                                     foregroundColor: Colors.white,
                                   ),
-                                  child: const Text('recent'),
+                                  child: const Text('  recent  '),
                                 ),
                                 ElevatedButton(
                                   onPressed: () {
-                                    _updateStream('popular', 'favorites'); // Update stream with query sorted by popularity
+                                    _updateStream('popular', 'favorites');
                                   },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.black,
                                     foregroundColor: Colors.white,
                                   ),
-                                  child: const Text('popular'),
+                                  child: const Text('  popular '),
                                 ),
                                 ElevatedButton(
                                   onPressed: () {
-                                    _updateStream('price', 'houses'); // Update stream with query sorted by price (bestseller)
+                                    _updateStream('price', 'houses');
                                   },
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.black,
@@ -129,6 +133,11 @@ class _HomePageState extends State<HomePage> {
                         itemBuilder: (context, index) {
                           var data = snapshot.data!.docs[index].data() as Map<String, dynamic>;
                           bool isFavorite = _favoriteItems.contains(data);
+                          if (_searchValue.isNotEmpty &&
+                              data['price'] != null &&
+                              data['price'].toString() != _searchValue) {
+                            return SizedBox();
+                          }
                           return _buildCard(data, isFavorite, index);
                         },
                       ),
@@ -173,29 +182,40 @@ class _HomePageState extends State<HomePage> {
   Widget _buildSearchBar() {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20.0, 50.0, 20.0, 20.0),
-      child: TextField(
-        controller: _searchController,
-        autofocus: true, // Ensure the search bar is focused
-        decoration: InputDecoration(
-          hintText: 'Search for houses by price',
-          prefixIcon: const Icon(Icons.search),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(20.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _priceController,
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+              ],
+              decoration: InputDecoration(
+                hintText: 'Search for houses by price',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20.0),
+                ),
+              ),
+              onSubmitted: (value) {
+                _handleSearch();
+              },
+            ),
           ),
-        ),
-        onChanged: (value) {
-          if (value.isNotEmpty) {
-            _searchByPrice(value);
-          } else {
-            _updateStream('dateAdded');
-          }
-        },
+        ],
       ),
     );
   }
 
-  void _searchByPrice(String price) {
-    int parsedPrice = int.tryParse(price) ?? 0; // Convert the price string to integer
+  void _handleSearch() {
+    setState(() {
+      _searchValue = _priceController.text.trim();
+    });
+  }
+
+  void _searchByPriceOnSubmit(String price) {
+    int parsedPrice = int.tryParse(price) ?? 0;
 
     setState(() {
       _currentStream = FirebaseFirestore.instance
@@ -270,13 +290,12 @@ class _HomePageState extends State<HomePage> {
   void _addToFavorites(Map<String, dynamic> data, bool isFavorite, int index) {
     setState(() {
       if (isFavorite) {
-        _favoriteItems.remove(data); // Remove publication from favorites
+        _favoriteItems.remove(data);
       } else {
-        _favoriteItems.add(data); // Add publication to favorites
+        _favoriteItems.add(data);
       }
     });
 
-    // Save the publication to the "favorites" collection in Firestore
     if (!isFavorite) {
       FirebaseFirestore.instance.collection('favorites').add(data);
     }
@@ -309,126 +328,124 @@ class FavoriteCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'House',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                ElevatedButton(
-                  onPressed: () {
-                    showModalBottomSheet(
-                      isScrollControlled: true,
-                      context: context,
-                      builder: (BuildContext ctx) {
-                        return FractionallySizedBox(
-                          heightFactor: 0.9,
-                          child: Padding(
-                            padding: const EdgeInsets.all(10),
-                            child: Card(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (data['imageUrls'] != null && data['imageUrls'].isNotEmpty)
-                                    SizedBox(
-                                      height: 230,
-                                      child: PageView.builder(
-                                        itemCount: data['imageUrls'].length,
-                                        itemBuilder: (context, index) {
-                                          return Image.network(
-                                            data['imageUrls'][index],
-                                            fit: BoxFit.cover,
-                                          );
-                                        },
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () {
+                        showModalBottomSheet(
+                          isScrollControlled: true,
+                          context: context,
+                          builder: (BuildContext ctx) {
+                            return FractionallySizedBox(
+                              heightFactor: 0.9,
+                              child: Padding(
+                                padding: const EdgeInsets.all(10),
+                                child: Card(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (data['imageUrls'] != null && data['imageUrls'].isNotEmpty)
+                                        SizedBox(
+                                          height: 230,
+                                          child: PageView.builder(
+                                            itemCount: data['imageUrls'].length,
+                                            itemBuilder: (context, index) {
+                                              return Image.network(
+                                                data['imageUrls'][index],
+                                                fit: BoxFit.cover,
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      Padding(
+                                        padding: const EdgeInsets.all(4),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              'House Details',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 10),
+                                            Text(
+                                              'Price: \$${data['price']}',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 5),
+                                            Text(
+                                              'Floor: ${data['floor']}',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 5),
+                                            Text(
+                                              'Number of Rooms: ${data['numberOfRooms']}',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 5),
+                                            Text(
+                                              'Technology: ${data['technology']}',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 10),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  Padding(
-                                    padding: const EdgeInsets.all(4),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'House Details',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
+                                      const SizedBox(height: 10),
+                                      Container(
+                                        height: 300,
+                                        child: GoogleMap(
+                                          initialCameraPosition: CameraPosition(
+                                            target: LatLng(data['latitude'], data['longitude']),
+                                            zoom: 15,
                                           ),
-                                        ),
-                                        const SizedBox(height: 10),
-                                        Text(
-                                          'Price: \$${data['price']}',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 5),
-                                        Text(
-                                          'Size: ${data['size']} sqft',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 10),
-                                        const Text(
-                                          'More Images',
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 10),
-                                        ElevatedButton(
-                                          onPressed: () {
-                                            // Do something when user clicks on a button
+                                          markers: {
+                                            Marker(
+                                              markerId: MarkerId('house_marker'),
+                                              position: LatLng(data['latitude'], data['longitude']),
+                                              infoWindow: InfoWindow(title: 'House Location'),
+                                            ),
                                           },
-                                          child: const Text('Contact Seller'),
+                                          onMapCreated: (GoogleMapController controller) {
+                                            // Additional functionalities can be added here if needed
+                                          },
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Container(
-                                    height: 300,
-                                    child: GoogleMap(
-                                      initialCameraPosition: CameraPosition(
-                                        target: LatLng(data['latitude'], data['longitude']),
-                                        zoom: 15,
                                       ),
-                                      markers: {
-                                        Marker(
-                                          markerId: MarkerId('house_marker'),
-                                          position: LatLng(data['latitude'], data['longitude']),
-                                          infoWindow: InfoWindow(title: 'House Location'),
-                                        ),
-                                      },
-                                      onMapCreated: (GoogleMapController controller) {
-                                        // Additional functionalities can be added here if needed
-                                      },
-                                    ),
+                                    ],
                                   ),
-                                ],
+                                ),
                               ),
-                            ),
-                          ),
+                            );
+                          },
                         );
                       },
-                    );
-                  },
-                  child: const Text('View House'),
+                      style: ElevatedButton.styleFrom(
+                        foregroundColor: Colors.white, backgroundColor: Colors.black, // foreground color
+                      ),
+                      child: const Text('View House'),
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        addToFavorites(data, isFavorite, index); // Add or remove from favorites
+                      },
+                      icon: Icon(
+                        isFavorite ? Icons.favorite : Icons.favorite_border,
+                        color: isFavorite ? Colors.red : Colors.grey,
+                      ),
+                    ),
+                  ],
                 ),
               ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 330.0, bottom: 0.0),
-            child: IconButton(
-              onPressed: () {
-                addToFavorites(data, isFavorite, index); // Add or remove from favorites
-              },
-              icon: Icon(
-                isFavorite ? Icons.favorite : Icons.favorite_border,
-                color: isFavorite ? Colors.red : Colors.grey,
-              ),
             ),
           ),
         ],
@@ -436,6 +453,7 @@ class FavoriteCard extends StatelessWidget {
     );
   }
 }
+
 void main() {
   runApp(MaterialApp(
     home: HomePage(documentId: 'documentId', userId: 'userId'),

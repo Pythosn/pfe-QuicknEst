@@ -1,5 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart'; // Import Firebase Storage package
+import 'package:image_picker/image_picker.dart';
 import 'package:myfirstprojct/screens/parameter_screen.dart';
 import 'package:myfirstprojct/screens/publication_screen.dart';
 import 'package:myfirstprojct/screens/signin_screen.dart'; // Import the login page
@@ -10,7 +14,7 @@ class ProfileScreen extends StatelessWidget {
   const ProfileScreen({Key? key, required this.userId}) : super(key: key);
 
   Future<DocumentSnapshot<Map<String, dynamic>>> _getUserData() async {
-    if (userId.isNotEmpty) { // Add a null or empty check for userId
+    if (userId.isNotEmpty) {
       DocumentSnapshot<Map<String, dynamic>> userData = await FirebaseFirestore.instance.collection('users').doc(userId).get();
       return userData;
     } else {
@@ -37,11 +41,6 @@ class ProfileScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 20),
-              const CircleAvatar(
-                radius: 50,
-                backgroundImage: AssetImage('assets/profile_image.png'),
-              ),
-              const SizedBox(height: 10),
               FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
                 future: _getUserData(),
                 builder: (context, snapshot) {
@@ -50,12 +49,24 @@ class ProfileScreen extends StatelessWidget {
                   } else if (snapshot.hasError) {
                     return Text('Error: ${snapshot.error}');
                   } else {
-                    // Retrieve the user's first name and last name from snapshot.data
                     String firstName = snapshot.data!.get('first_name');
                     String lastName = snapshot.data!.get('last_name');
                     String username = snapshot.data!.get('user_name');
+                    String profileImageUrl = snapshot.data!.get('profile_image_url') ?? ''; // Check if profile image URL exists
                     return Column(
                       children: [
+                        GestureDetector(
+                          onTap: () {
+                            _pickImage(context);
+                          },
+                          child: CircleAvatar(
+                            radius: 50,
+                            backgroundImage: profileImageUrl.isNotEmpty
+                                ? NetworkImage(profileImageUrl)
+                                : AssetImage('assets/profile_image.png') as ImageProvider,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
                         Text(
                           '$firstName $lastName',
                           style: const TextStyle(
@@ -97,7 +108,7 @@ class ProfileScreen extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color:  const Color(0xFFA4DAEC),
         borderRadius: BorderRadius.circular(15),
       ),
       child: ListTile(
@@ -119,7 +130,7 @@ class ProfileScreen extends StatelessWidget {
             if (title == 'Mes Publications') {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => UserPublicationsPage(userId: userId)), // Pass userId to UserPublicationsPage
+                MaterialPageRoute(builder: (context) => UserPublicationsPage(userId: userId)),
               );
             } else {
               _showSettingsBottomSheet(context);
@@ -167,9 +178,23 @@ class ProfileScreen extends StatelessWidget {
       builder: (BuildContext context) {
         return Padding(
           padding: const EdgeInsets.only(top: 100.0),
-          child: parametre(), // Use your Parameter widget
+          child: parametre(),
         );
       },
     );
+  }
+
+  Future<void> _pickImage(BuildContext context) async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.getImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      File imageFile = File(pickedFile.path);
+      Reference storageReference = FirebaseStorage.instance.ref().child('user_profile_images').child('$userId.jpg');
+      UploadTask uploadTask = storageReference.putFile(imageFile);
+      await uploadTask.whenComplete(() async {
+        String downloadURL = await storageReference.getDownloadURL();
+        await FirebaseFirestore.instance.collection('users').doc(userId).update({'profile_image_url': downloadURL});
+      });
+    }
   }
 }

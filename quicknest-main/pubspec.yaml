@@ -44,6 +44,8 @@ dependencies:
   flutter_map: ^4.0.0
   #permission_handler: ^11.3.0
   google_maps_flutter: ^2.1.0
+  #http: ^0.13.3
+  #tflite_flutter: ^2.0.0
   
 
 

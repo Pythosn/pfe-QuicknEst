@@ -50,7 +50,7 @@ class WelcomeScreen extends StatelessWidget {
                     const Text(
                       'Q u i k n E s t',
                       style: TextStyle(
-                        fontSize: 24,
+                        fontSize: 30,
                         fontWeight: FontWeight.bold,
                         color: Color.fromARGB(255, 17, 17, 17), 
                       ),
@@ -70,7 +70,9 @@ class WelcomeScreen extends StatelessWidget {
                       ),
                       child: const Text(
                         "Let's start", 
-                        style: TextStyle(color: Colors.black), 
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.black), 
                       ),
                     ),
                   ],
