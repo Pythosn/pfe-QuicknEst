@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:myfirstprojct/screens/home_screen.dart';
@@ -21,8 +20,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController phoneNumberController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  final TextEditingController confirmPasswordController = TextEditingController(); // New controller for confirm password
 
-  
   Widget buildTextFormField({
     required TextEditingController controller,
     required String label,
@@ -184,9 +183,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
               obscureText: true,
             ),
             const SizedBox(height: 20),
+            buildTextFormField(
+              controller: confirmPasswordController,
+              label: 'Confirm Password',
+              hint: 'Re-enter Password',
+              validator: (value) {
+                if (value != passwordController.text) {
+                  return 'Passwords do not match';
+                }
+                return null;
+              },
+              obscureText: true,
+            ),
+            const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () async {
-            
                 if (!firstNameController.text.trim().startsWith(RegExp(r'[a-zA-Z]'))) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -196,7 +207,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   return;
                 }
 
-               
                 if (!lastNameController.text.trim().startsWith(RegExp(r'[a-zA-Z]'))) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -206,7 +216,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   return;
                 }
 
-        
                 if (phoneNumberController.text.trim().length != 10) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -215,7 +224,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   );
                   return;
                 }
-
 
                 if (!emailController.text.trim().toLowerCase().endsWith('@gmail.com')) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -226,7 +234,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   return;
                 }
 
-           
+                if (passwordController.text != confirmPasswordController.text) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Passwords do not match'),
+                    ),
+                  );
+                  return;
+                }
+
                 CollectionReference collRef = FirebaseFirestore.instance.collection('users');
                 await collRef.add({
                   'first_name': firstNameController.text,
@@ -238,13 +254,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   'Password': passwordController.text,
                 });
 
-
-               Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const HomePage(documentId: '', userId: '',),
-                    ),
-                  );
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const HomePage(documentId: '', userId: '',),
+                  ),
+                );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF73BBD9),
@@ -254,8 +269,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 "Sign up",
                 style: TextStyle(
                   color: Colors.black,
-
-
                   fontSize: 16,
                 ),
               ),

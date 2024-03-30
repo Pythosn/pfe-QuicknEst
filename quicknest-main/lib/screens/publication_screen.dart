@@ -74,7 +74,8 @@ class UserPublicationsPage extends StatelessWidget {
                   data: publication.data() as Map<String, dynamic>,
                   isFavorite: true, // Assuming all user's publications are favorites
                   index: index,
-                  addToFavorites: (data, isFavorite, index) {}, // Placeholder function, not used in this context
+                  addToFavorites: (data, isFavorite, index) {}, 
+                  commentController: TextEditingController(), // Pass a dummy TextEditingController
                 ),
               );
             },

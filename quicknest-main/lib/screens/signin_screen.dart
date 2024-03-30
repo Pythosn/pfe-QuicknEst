@@ -15,6 +15,7 @@ class _SignInScreenState extends State<SignInScreen> {
   final _formSignInKey = GlobalKey<FormState>();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
+  bool _passwordVisible = false;
 
   @override
   Widget build(BuildContext context) {
@@ -24,8 +25,8 @@ class _SignInScreenState extends State<SignInScreen> {
         child: Padding(
           padding: const EdgeInsets.only(top: 120, left: 60),
           child: Container(
-            decoration: BoxDecoration(
-              borderRadius: const BorderRadius.only(
+            decoration: const BoxDecoration(
+              borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(40.0),
                 topRight: Radius.circular(40.0),
               ),
@@ -89,30 +90,42 @@ class _SignInScreenState extends State<SignInScreen> {
                       width: 250,
                       child: TextFormField(
                         controller: passwordController,
-                        obscureText: true,
-                        obscuringCharacter: '*',
+                        obscureText: !_passwordVisible,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'Please enter password';
                           }
                           return null;
                         },
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Password',
                           hintText: 'Enter Password',
-                          hintStyle: TextStyle(
+                          hintStyle: const TextStyle(
                             color: Colors.black26,
                           ),
-                          border: OutlineInputBorder(
+                          border: const OutlineInputBorder(
                             borderSide: BorderSide(
                               color: Colors.black12,
                             ),
                             borderRadius: BorderRadius.zero,
                           ),
-                          enabledBorder: OutlineInputBorder(
+                          enabledBorder: const OutlineInputBorder(
                             borderSide: BorderSide(
                               color: Colors.black12,
                             ),
+                          ),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _passwordVisible
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                              color: Colors.grey,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _passwordVisible = !_passwordVisible;
+                              });
+                            },
                           ),
                         ),
                       ),
@@ -137,9 +150,7 @@ class _SignInScreenState extends State<SignInScreen> {
                               context,
                               MaterialPageRoute(
                                 builder: (context) => HomePage(
-                                  documentId: documentId,
-                                  userId: documentId
-                                ),
+                                    documentId: documentId, userId: documentId),
                               ),
                             );
                           } else {

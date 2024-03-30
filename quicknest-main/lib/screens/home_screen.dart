@@ -20,10 +20,10 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   List<Map<String, dynamic>> _favoriteItems = [];
   late Stream<QuerySnapshot> _currentStream;
-  // ignore: unused_field
   late TextEditingController _searchController;
   TextEditingController _priceController = TextEditingController();
   String _searchValue = '';
+  TextEditingController _commentController = TextEditingController(); // Declare _commentController here
 
   @override
   void initState() {
@@ -35,6 +35,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _priceController.dispose();
+    _commentController.dispose(); // Dispose _commentController
     super.dispose();
   }
 
@@ -283,6 +284,7 @@ class _HomePageState extends State<HomePage> {
         isFavorite: isFavorite,
         index: index,
         addToFavorites: _addToFavorites,
+        commentController: _commentController, // Pass comment controller to FavoriteCard
       ),
     );
   }
@@ -307,8 +309,9 @@ class FavoriteCard extends StatelessWidget {
   final bool isFavorite;
   final int index;
   final Function(Map<String, dynamic> data, bool isFavorite, int index) addToFavorites;
+  final TextEditingController commentController; // Declare commentController here
 
-  const FavoriteCard({Key? key, required this.data, required this.isFavorite, required this.index, required this.addToFavorites}) : super(key: key);
+  const FavoriteCard({Key? key, required this.data, required this.isFavorite, required this.index, required this.addToFavorites, required this.commentController}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -398,6 +401,54 @@ class FavoriteCard extends StatelessWidget {
                                               ),
                                             ),
                                             const SizedBox(height: 10),
+                                            // Comment Section
+                                            const Text(
+                                              'Comments:',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            SizedBox(height: 5),
+                                            StreamBuilder(
+                                              stream: FirebaseFirestore.instance.collection('comments').doc(data['id']).collection('comments').snapshots(),
+                                              builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
+                                                if (snapshot.connectionState == ConnectionState.waiting) {
+                                                  return CircularProgressIndicator();
+                                                }
+                                                if (snapshot.hasError) {
+                                                  return Text('Error: ${snapshot.error}');
+                                                }
+                                                return ListView.builder(
+                                                  shrinkWrap: true,
+                                                  itemCount: snapshot.data!.docs.length,
+                                                  itemBuilder: (BuildContext context, int index) {
+                                                    var commentData = snapshot.data!.docs[index].data() as Map<String, dynamic>;
+                                                    return ListTile(
+                                                      title: Text(commentData['comment']),
+                                                    );
+                                                  },
+                                                );
+                                              },
+                                            ),
+                                            SizedBox(height: 10),
+                                            // Adding Comment Text Field
+                                            TextField(
+                                              decoration: InputDecoration(
+                                                hintText: 'Add your comment here',
+                                                suffixIcon: IconButton(
+                                                  onPressed: () {
+                                                    // Add comment to Firestore
+                                                    FirebaseFirestore.instance.collection('comments').doc(data['id']).collection('comments').add({
+                                                      'comment': commentController.text,
+                                                    });
+                                                    // Clear text field after comment added
+                                                    commentController.clear();
+                                                  },
+                                                  icon: Icon(Icons.send),
+                                                ),
+                                              ),
+                                              controller: commentController,
+                                            ),
                                           ],
                                         ),
                                       ),
