@@ -7,39 +7,25 @@ class UserPublicationsPage extends StatelessWidget {
 
   const UserPublicationsPage({required this.userId});
 
-  Future<void> _deletePublication(BuildContext context, String publicationId) async {
-    // Show a confirmation dialog before deleting the publication
-    bool confirmDelete = await showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text("Confirmation"),
-          content: Text("Are you sure you want to delete this publication?"),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(false); // Return false to indicate cancellation
-              },
-              child: Text("Cancel"),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(true); // Return true to indicate confirmation
-              },
-              child: Text("Delete"),
-            ),
-          ],
-        );
-      },
-    );
+  Future<void> _updatePublication(BuildContext context, String publicationId, bool reserved) async {
+    try {
+      // Check if the 'reserved' field exists in Firestore for this publication
+      var publicationRef = FirebaseFirestore.instance.collection('houses').doc(publicationId);
+      var publicationDoc = await publicationRef.get();
 
-    // If the user confirms deletion, delete the publication from Firestore
-    if (confirmDelete == true) {
-      try {
-        await FirebaseFirestore.instance.collection('houses').doc(publicationId).delete();
-      } catch (e) {
-        print('Error deleting publication: $e');
+      if (!publicationDoc.exists || !publicationDoc.data()!.containsKey('reserved')) {
+        // If 'reserved' field doesn't exist, add it to Firestore
+        await publicationRef.update({
+          'reserved': reserved, // Update the 'reserved' field in Firestore
+        });
+      } else {
+        // If 'reserved' field already exists, simply update it
+        await publicationRef.update({
+          'reserved': reserved, // Update the 'reserved' field in Firestore
+        });
       }
+    } catch (e) {
+      print('Error updating publication: $e');
     }
   }
 
@@ -47,7 +33,7 @@ class UserPublicationsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Mes Publications'),
+        title: Text('My Publications'),
         backgroundColor: const Color(0xFFA4DAEC),
       ),
       body: StreamBuilder(
@@ -67,21 +53,48 @@ class UserPublicationsPage extends StatelessWidget {
               var publication = snapshot.data!.docs[index];
               return GestureDetector(
                 onTap: () async {
-                  // Delete the publication when tapped
-                  await _deletePublication(context, publication.id);
+                  // Show a confirmation dialog before updating the publication as reserved
+                  bool confirmReserved = await showDialog(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return AlertDialog(
+                        title: Text("Confirmation"),
+                        content: Text("Mark this publication as reserved?"),
+                        actions: <Widget>[
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop(false); // Return false if user cancels
+                            },
+                            child: Text("Cancel"),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop(true); // Return true if user confirms
+                            },
+                            child: Text("Reserve"),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+
+                  // If the user confirms reservation, update the publication in Firestore
+                  if (confirmReserved == true) {
+                    await _updatePublication(context, publication.id, true);
+                  }
                 },
                 child: FavoriteCard(
                   data: publication.data() as Map<String, dynamic>,
                   isFavorite: true, // Assuming all user's publications are favorites
                   index: index,
-                  addToFavorites: (data, isFavorite, index) {}, 
-                  commentController: TextEditingController(), // Pass a dummy TextEditingController
+                  addToFavorites: (data, isFavorite, index) {},
+                   // Pass a dummy TextEditingController
                 ),
               );
             },
           );
         },
-      ),
-    );
-  }
+     ),
+);
+}
 }

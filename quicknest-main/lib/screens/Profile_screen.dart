@@ -1,12 +1,11 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart'; // Import Firebase Storage package
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:myfirstprojct/screens/parameter_screen.dart';
 import 'package:myfirstprojct/screens/publication_screen.dart';
-import 'package:myfirstprojct/screens/signin_screen.dart'; // Import the login page
+import 'package:myfirstprojct/screens/signin_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   final String userId;
@@ -15,7 +14,8 @@ class ProfileScreen extends StatelessWidget {
 
   Future<DocumentSnapshot<Map<String, dynamic>>> _getUserData() async {
     if (userId.isNotEmpty) {
-      DocumentSnapshot<Map<String, dynamic>> userData = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      DocumentSnapshot<Map<String, dynamic>> userData =
+          await FirebaseFirestore.instance.collection('users').doc(userId).get();
       return userData;
     } else {
       throw Exception("userId is empty or null");
@@ -49,10 +49,13 @@ class ProfileScreen extends StatelessWidget {
                   } else if (snapshot.hasError) {
                     return Text('Error: ${snapshot.error}');
                   } else {
+                    print(snapshot.data!.data());
                     String firstName = snapshot.data!.get('first_name');
                     String lastName = snapshot.data!.get('last_name');
                     String username = snapshot.data!.get('user_name');
-                    String profileImageUrl = snapshot.data!.get('profile_image_url') ?? ''; // Check if profile image URL exists
+                    String? profileImageUrl = snapshot.data!.data()?.containsKey('profile_image_url') ?? false
+                        ? snapshot.data!.get('profile_image_url')
+                        : '';
                     return Column(
                       children: [
                         GestureDetector(
@@ -61,7 +64,7 @@ class ProfileScreen extends StatelessWidget {
                           },
                           child: CircleAvatar(
                             radius: 50,
-                            backgroundImage: profileImageUrl.isNotEmpty
+                            backgroundImage: profileImageUrl!.isNotEmpty
                                 ? NetworkImage(profileImageUrl)
                                 : AssetImage('assets/profile_image.png') as ImageProvider,
                           ),
@@ -89,13 +92,11 @@ class ProfileScreen extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 30),
-              _buildMenuOption('Mes Publications', Icons.article, context: context),
+              _buildMenuOption('My Publications', Icons.article, context: context),
               const SizedBox(height: 20),
-              _buildMenuOption('Paramètres du compte', Icons.settings, context: context),
+              _buildMenuOption('Account Settings', Icons.settings, context: context),
               const SizedBox(height: 20),
-              _buildMenuOption('Politique de confidentialité', Icons.privacy_tip, context: context),
-              const SizedBox(height: 20),
-              _buildMenuOption('Déconnexion', Icons.logout, isLogout: true, context: context),
+              _buildMenuOption('Signout', Icons.logout, isLogout: true, context: context),
               const SizedBox(height: 400),
             ],
           ),
@@ -108,7 +109,7 @@ class ProfileScreen extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 20),
       decoration: BoxDecoration(
-        color:  const Color(0xFFA4DAEC),
+        color: const Color(0xFFA4DAEC),
         borderRadius: BorderRadius.circular(15),
       ),
       child: ListTile(
@@ -127,7 +128,7 @@ class ProfileScreen extends StatelessWidget {
           if (isLogout) {
             _showLogoutDialog(context);
           } else {
-            if (title == 'Mes Publications') {
+            if (title == 'My Publications') {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => UserPublicationsPage(userId: userId)),
@@ -146,14 +147,14 @@ class ProfileScreen extends StatelessWidget {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text("Déconnexion"),
-          content: const Text("Êtes-vous sûr de vouloir vous déconnecter ?"),
+          title: const Text("Signout"),
+          content: const Text("Are you sure you want to log out?"),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
               },
-              child: const Text("Non"),
+              child: const Text("No"),
             ),
             TextButton(
               onPressed: () {
@@ -163,7 +164,7 @@ class ProfileScreen extends StatelessWidget {
                   MaterialPageRoute(builder: (context) => const SignInScreen()),
                 );
               },
-              child: const Text("Oui"),
+              child: const Text("Yes"),
             ),
           ],
         );
@@ -176,9 +177,11 @@ class ProfileScreen extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       builder: (BuildContext context) {
-        return Padding(
-          padding: const EdgeInsets.only(top: 100.0),
-          child: parametre(),
+        return Parametre(
+          userId: userId,
+          onUpdateUserInformation: (updatedUserInfo) {
+            FirebaseFirestore.instance.collection('users').doc(userId).update(updatedUserInfo);
+          },
         );
       },
     );

@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class FavoritesPage extends StatefulWidget {
+  final String userId;
+
+  const FavoritesPage({Key? key, required this.userId}) : super(key: key);
+
   @override
   _FavoritesPageState createState() => _FavoritesPageState();
 }
@@ -30,12 +34,15 @@ class _FavoritesPageState extends State<FavoritesPage> {
           return Center(child: CircularProgressIndicator());
         }
 
-        if (snapshot.data!.docs.isEmpty) {
+        // Filter favorites by the current user
+        final userFavorites = snapshot.data!.docs.where((doc) => doc['userId'] == widget.userId).toList();
+
+        if (userFavorites.isEmpty) {
           return Center(child: Text('No favorites yet.'));
         }
 
         return ListView(
-          children: snapshot.data!.docs.map((DocumentSnapshot document) {
+          children: userFavorites.map((DocumentSnapshot document) {
             Map<String, dynamic> data = document.data() as Map<String, dynamic>;
             return FavoriteCard(
               data: data,
@@ -79,12 +86,6 @@ class FavoriteCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'House',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
                 const SizedBox(height: 5),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -93,11 +94,14 @@ class FavoriteCard extends StatelessWidget {
                       onPressed: () {
                         // Implement the code to view the details of the publication
                       },
+                       style: ElevatedButton.styleFrom(
+                        foregroundColor: Colors.white, backgroundColor: Colors.black, // foreground color
+                      ),
                       child: const Text('View House'),
                     ),
                     IconButton(
                       onPressed: onDelete,
-                      icon: Icon(Icons.favorite_border), // Utilisation de l'icône de cœur brisé
+                      icon: Icon(Icons.favorite_border), 
                       color: Colors.red,
                     ),
                   ],

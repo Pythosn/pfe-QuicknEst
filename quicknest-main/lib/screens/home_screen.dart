@@ -7,6 +7,7 @@ import 'package:myfirstprojct/screens/Fav_screen.dart';
 import 'package:myfirstprojct/screens/Profile_screen.dart';
 
 class HomePage extends StatefulWidget {
+//Variables membres: 
   final String documentId;
   final String userId;
 
@@ -19,17 +20,26 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   List<Map<String, dynamic>> _favoriteItems = [];
-  late Stream<QuerySnapshot> _currentStream;
-  late TextEditingController _searchController;
+  late Stream<QuerySnapshot> _currentStream;//flux de données :Firestore 
+  late TextEditingController _searchController;//Un contrôleur de texte 
+  late TextEditingController _minPriceController;
+  late TextEditingController _maxPriceController;
+  int _minPrice = 0;
+  int _maxPrice = 0;
+  bool _isSearchExpanded = false;//est un booléen qui indique si la barre de recherche de la page d'accueil est actuellement étendue ou non.
+  bool adsFound = false;//Un booléen indiquant si des annonces ont été trouvées dans les résultats de recherche.
+
   TextEditingController _priceController = TextEditingController();
   String _searchValue = '';
   TextEditingController _commentController = TextEditingController(); // Declare _commentController here
 
   @override
   void initState() {
-    super.initState();
-    _currentStream = FirebaseFirestore.instance.collection('houses').snapshots();
-    _searchController = TextEditingController();
+    super.initState();//pratique courante dans Flutter pour garantir que l'état du widget est correctement initialisé.
+    _currentStream = FirebaseFirestore.instance.collection('houses').snapshots();//permettra de récupérer en temps réel les mises à jour de la base de données Firestore pour cette collection.
+    _searchController = TextEditingController();// controleur qui gérer la saisie de texte 
+    _minPriceController = TextEditingController();
+    _maxPriceController = TextEditingController();
   }
 
   @override
@@ -41,25 +51,26 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return Scaffold(// le widget racine de la page
       body: StreamBuilder(
-        stream: _currentStream,
+        stream: _currentStream,//il écoute le flux _currentStream 
         builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
-          }
+          }//animation de chargement
 
           if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
-          }
+          }//generer error si  il n'ya pas de connexion
 
-          return Column(
+//interface d'acceuil
+          return Column(//seule colonne verticale
             children: [
               _buildSearchBar(),
               Expanded(
-                child: SingleChildScrollView(
+                child: SingleChildScrollView(//scrolling
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,//contrôle l'alignement des éléments enfants
                     children: [
                       Padding(
                         padding: const EdgeInsets.fromLTRB(20.0, 5.0, 20.0, 20.0),
@@ -89,7 +100,7 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ),
                             const SizedBox(height: 20),
-                            Row(
+                            Row(//child
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 ElevatedButton(
@@ -127,8 +138,8 @@ class _HomePageState extends State<HomePage> {
                           ],
                         ),
                       ),
-                      ListView.builder(
-                        shrinkWrap: true,
+                      ListView.builder(//bar de recherche
+                        shrinkWrap: true,//emballer
                         physics: const NeverScrollableScrollPhysics(),
                         itemCount: snapshot.data!.docs.length,
                         itemBuilder: (context, index) {
@@ -148,13 +159,18 @@ class _HomePageState extends State<HomePage> {
               ),
             ],
           );
+//fin daccueil
         },
+
+
+
       ),
+//barre de navigation      
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.black,
         elevation: 0,
         type: BottomNavigationBarType.fixed,
-        items: const <BottomNavigationBarItem>[
+        items: const <BottomNavigationBarItem>[//separation des icones
           BottomNavigationBarItem(
             icon: Icon(Icons.home),
             label: 'Home',
@@ -172,48 +188,156 @@ class _HomePageState extends State<HomePage> {
             label: 'Profile',
           ),
         ],
-        currentIndex: _selectedIndex,
+        currentIndex: _selectedIndex,//pages
         selectedItemColor: const Color.fromARGB(255, 164, 218, 236),
         unselectedItemColor: const Color.fromARGB(255, 247, 248, 249),
         onTap: _onItemTapped,
       ),
+
+//fin de la barr
+
     );
   }
-
-  Widget _buildSearchBar() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20.0, 50.0, 20.0, 20.0),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _priceController,
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-              ],
-              decoration: InputDecoration(
-                hintText: 'Search for houses by price',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20.0),
+Widget _buildSearchBar() {
+  return Padding(
+    padding: const EdgeInsets.fromLTRB(20.0, 50, 20.0, 20.0),
+    child: _isSearchExpanded
+        ? Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _minPriceController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
+                  decoration: InputDecoration(
+                    hintText: 'min price',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20.0),
+                    ),
+                  ),
                 ),
               ),
-              onSubmitted: (value) {
-                _handleSearch();
-              },
-            ),
+              const SizedBox(width: 5), // Espace entre le champ de saisie du prix minimum et le bouton "OK"
+              Expanded(
+                child: TextField(
+                  controller: _maxPriceController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
+                  decoration: InputDecoration(
+                    hintText: 'max price',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20.0),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 5), // Espace entre le champ de saisie du prix maximum et le bouton "OK"
+              ElevatedButton(
+                onPressed: () {
+                  _handleSearchByPrice();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black, // Couleur de fond noire
+                  foregroundColor: Colors.white, // Texte blanc à l'intérieur
+                ),
+                child: Text('OK'),
+              ),
+              IconButton(
+                onPressed: () {
+                  setState(() {
+                    _isSearchExpanded = false;
+                  });
+                },
+                icon: Icon(Icons.close),
+              ),
+            ],
+          )
+        : Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search...',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(20.0),
+                    ),
+                  ),
+                  onTap: () {
+                    setState(() {
+                      _isSearchExpanded = true;
+                    });
+                  },
+                ),
+              ),
+              IconButton(
+                onPressed: () {
+                  setState(() {
+                    _isSearchExpanded = true;
+                  });
+                },
+                icon: Icon(Icons.search),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
+  );
+}
+
+
+
+void _handleSearchByPrice() {
+  setState(() {
+    String minPriceText = _minPriceController.text.trim();
+    String maxPriceText = _maxPriceController.text.trim();
+
+    // Convertir les prix en entiers pour la comparaison
+    int minPrice = int.tryParse(minPriceText) ?? 0;
+    int maxPrice = int.tryParse(maxPriceText) ?? 0;
+
+    // Utiliser les entiers pour les comparaisons avec Firestore
+    _currentStream = FirebaseFirestore.instance
+        .collection('houses')
+        .where('price', isGreaterThanOrEqualTo: minPrice.toString())
+        .where('price', isLessThanOrEqualTo: maxPrice.toString())
+        .snapshots();
+
+    _isSearchExpanded = false; // Réinitialiser l'état de la barre de recherche
+
+    // Effacer les valeurs des champs de prix et de recherche
+    _minPriceController.clear();
+    _maxPriceController.clear();
+    _searchController.clear();
+
+    // Afficher un message si aucune annonce n'est trouvée dans la plage de prix spécifiée
+    _currentStream.listen((snapshot) {
+      adsFound = snapshot.docs.any((doc) {
+        var price = int.tryParse(doc['price']) ?? 0;
+        return price >= minPrice && price <= maxPrice;
+      });
+
+      if (!adsFound) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Aucune annonce avec ce prix n\'a été trouvée.'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+});
+});
+}
+
 
   void _handleSearch() {
-    setState(() {
-      _searchValue = _priceController.text.trim();
-    });
-  }
+  setState(() {
+    _searchValue = _searchController.text.trim();
+  });
+}
+
 
   void _searchByPriceOnSubmit(String price) {
     int parsedPrice = int.tryParse(price) ?? 0;
@@ -258,7 +382,7 @@ class _HomePageState extends State<HomePage> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => FavoritesPage(),
+          builder: (context) => FavoritesPage(userId: widget.userId),
         ),
       );
     } else if (index == 3) {
@@ -284,7 +408,6 @@ class _HomePageState extends State<HomePage> {
         isFavorite: isFavorite,
         index: index,
         addToFavorites: _addToFavorites,
-        commentController: _commentController, // Pass comment controller to FavoriteCard
       ),
     );
   }
@@ -309,197 +432,171 @@ class FavoriteCard extends StatelessWidget {
   final bool isFavorite;
   final int index;
   final Function(Map<String, dynamic> data, bool isFavorite, int index) addToFavorites;
-  final TextEditingController commentController; // Declare commentController here
 
-  const FavoriteCard({Key? key, required this.data, required this.isFavorite, required this.index, required this.addToFavorites, required this.commentController}) : super(key: key);
+  const FavoriteCard({Key? key, required this.data, required this.isFavorite, required this.index, required this.addToFavorites}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    bool isReserved = data['reserved'] ?? false; // Check if the publication is reserved
     return Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (data['imageUrls'] != null && data['imageUrls'].isNotEmpty)
-            Image.network(
-              data['imageUrls'][0],
-              width: double.infinity,
-              height: 200,
-              fit: BoxFit.cover,
+  if (data['imageUrls'] != null && data['imageUrls'].isNotEmpty)
+    Stack(
+      alignment: Alignment.topRight, // Align items to the top right corner
+      children: [
+        Image.network(
+          data['imageUrls'][0],
+          width: double.infinity,
+          height: 200,
+          fit: BoxFit.cover,
+        ),
+        if (isReserved) // Show the "Res" badge if the publication is reserved
+          Container(
+            margin: const EdgeInsets.only(top: 10, right: 10),
+            padding: const EdgeInsets.all(5),
+            decoration: const BoxDecoration(
+              color: Colors.red, // Change color to red
+              shape: BoxShape.circle, // Make it a circle
             ),
-          Padding(
-            padding: const EdgeInsets.all(4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    ElevatedButton(
-                      onPressed: () {
-                        showModalBottomSheet(
-                          isScrollControlled: true,
-                          context: context,
-                          builder: (BuildContext ctx) {
-                            return FractionallySizedBox(
-                              heightFactor: 0.9,
-                              child: Padding(
-                                padding: const EdgeInsets.all(10),
-                                child: Card(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      if (data['imageUrls'] != null && data['imageUrls'].isNotEmpty)
-                                        SizedBox(
-                                          height: 230,
-                                          child: PageView.builder(
-                                            itemCount: data['imageUrls'].length,
-                                            itemBuilder: (context, index) {
-                                              return Image.network(
-                                                data['imageUrls'][index],
-                                                fit: BoxFit.cover,
-                                              );
-                                            },
-                                          ),
-                                        ),
-                                      Padding(
-                                        padding: const EdgeInsets.all(4),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const Text(
-                                              'House Details',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 10),
-                                            Text(
-                                              'Price: \$${data['price']}',
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 5),
-                                            Text(
-                                              'Floor: ${data['floor']}',
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 5),
-                                            Text(
-                                              'Number of Rooms: ${data['numberOfRooms']}',
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 5),
-                                            Text(
-                                              'Technology: ${data['technology']}',
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 10),
-                                            // Comment Section
-                                            const Text(
-                                              'Comments:',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            SizedBox(height: 5),
-                                            StreamBuilder(
-                                              stream: FirebaseFirestore.instance.collection('comments').doc(data['id']).collection('comments').snapshots(),
-                                              builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
-                                                if (snapshot.connectionState == ConnectionState.waiting) {
-                                                  return CircularProgressIndicator();
-                                                }
-                                                if (snapshot.hasError) {
-                                                  return Text('Error: ${snapshot.error}');
-                                                }
-                                                return ListView.builder(
-                                                  shrinkWrap: true,
-                                                  itemCount: snapshot.data!.docs.length,
-                                                  itemBuilder: (BuildContext context, int index) {
-                                                    var commentData = snapshot.data!.docs[index].data() as Map<String, dynamic>;
-                                                    return ListTile(
-                                                      title: Text(commentData['comment']),
-                                                    );
-                                                  },
-                                                );
-                                              },
-                                            ),
-                                            SizedBox(height: 10),
-                                            // Adding Comment Text Field
-                                            TextField(
-                                              decoration: InputDecoration(
-                                                hintText: 'Add your comment here',
-                                                suffixIcon: IconButton(
-                                                  onPressed: () {
-                                                    // Add comment to Firestore
-                                                    FirebaseFirestore.instance.collection('comments').doc(data['id']).collection('comments').add({
-                                                      'comment': commentController.text,
-                                                    });
-                                                    // Clear text field after comment added
-                                                    commentController.clear();
-                                                  },
-                                                  icon: Icon(Icons.send),
-                                                ),
-                                              ),
-                                              controller: commentController,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(height: 10),
-                                      Container(
-                                        height: 300,
-                                        child: GoogleMap(
-                                          initialCameraPosition: CameraPosition(
-                                            target: LatLng(data['latitude'], data['longitude']),
-                                            zoom: 15,
-                                          ),
-                                          markers: {
-                                            Marker(
-                                              markerId: MarkerId('house_marker'),
-                                              position: LatLng(data['latitude'], data['longitude']),
-                                              infoWindow: InfoWindow(title: 'House Location'),
-                                            ),
-                                          },
-                                          onMapCreated: (GoogleMapController controller) {
-                                            // Additional functionalities can be added here if needed
-                                          },
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        foregroundColor: Colors.white, backgroundColor: Colors.black, // foreground color
-                      ),
-                      child: const Text('View House'),
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        addToFavorites(data, isFavorite, index); // Add or remove from favorites
-                      },
-                      icon: Icon(
-                        isFavorite ? Icons.favorite : Icons.favorite_border,
-                        color: isFavorite ? Colors.red : Colors.grey,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+            child: const Text(
+              'Res',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white, // Change text color to white
+              ),
             ),
           ),
-        ],
+      ],
+    ),
+  Padding(
+    padding: const EdgeInsets.all(4),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            ElevatedButton(
+              onPressed: () {
+                showModalBottomSheet(
+                  isScrollControlled: true,
+                  context: context,
+                  builder: (BuildContext ctx) {
+                    return FractionallySizedBox(
+                      heightFactor: 0.9,
+                      child: Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Card(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (data['imageUrls'] != null && data['imageUrls'].isNotEmpty)
+                                SizedBox(
+                                  height: 230,
+                                  child: PageView.builder(
+                                    itemCount: data['imageUrls'].length,
+                                    itemBuilder: (context, index) {
+                                      return Image.network(
+                                        data['imageUrls'][index],
+                                        fit: BoxFit.cover,
+                                      );
+                                    },
+                                  ),
+                                ),
+                              Padding(
+                                padding: const EdgeInsets.all(4),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'House Details',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      'Price: \$${data['price']}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      'Floor: ${data['floor']}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      'Number of Rooms: ${data['numberOfRooms']}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      'Technology: ${data['technology']}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Container(
+                                height: 300,
+                                child: GoogleMap(
+                                  initialCameraPosition: CameraPosition(
+                                    target: LatLng(data['latitude'], data['longitude']),
+                                    zoom: 15,
+                                  ),
+                                  markers: {
+                                    Marker(
+                                      markerId: MarkerId('house_marker'),
+                                      position: LatLng(data['latitude'], data['longitude']),
+                                      infoWindow: InfoWindow(title: 'House Location'),
+                                    ),
+                                  },
+                                  onMapCreated: (GoogleMapController controller) {
+                                    // Additional functionalities can be added here if needed
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.white, backgroundColor: Colors.black, // foreground color
+              ),
+              child: const Text('View House'),
+            ),
+            IconButton(
+              onPressed: () {
+                addToFavorites(data, isFavorite, index); // Add or remove from favorites
+              },
+              icon: Icon(
+                isFavorite ? Icons.favorite : Icons.favorite_border,
+                color: isFavorite ? Colors.red : Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  ),
+],
+
       ),
     );
   }
@@ -508,5 +605,5 @@ class FavoriteCard extends StatelessWidget {
 void main() {
   runApp(MaterialApp(
     home: HomePage(documentId: 'documentId', userId: 'userId'),
-  ));
+));
 }
